@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Besinlerden Enerjiye - D/Y Testi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .badge-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col items-center p-4">
+
+    <!-- Üst Bilgi Barı -->
+    <header class="w-full max-w-2xl bg-white shadow-sm border border-slate-200 p-4 mb-6 rounded-2xl flex justify-between items-center text-sm sm:text-base">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">D/Y</div>
+            <h1 class="text-lg font-bold text-slate-700">Besinlerden Enerjiye (Solunum)</h1>
+        </div>
+        <div class="flex items-center gap-2" id="header-controls">
+            <!-- Timer ve Çıkış Butonu Buraya Gelecek -->
+        </div>
+    </header>
+
+    <main id="app-container" class="w-full max-w-2xl flex-grow">
+        <!-- İçerik Dinamik Olarak Yüklenecek -->
+    </main>
+
+    <!-- İmza Alanı -->
+    <footer class="w-full max-w-2xl mt-8 mb-6 text-center">
+        <div class="inline-block px-6 py-2 bg-white border border-slate-200 rounded-full shadow-sm">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                Tasarım: <span class="text-indigo-600">Naci Karhan</span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Özel Onay Modalı -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 class="text-lg font-bold mb-2">Sınavı Bırak?</h3>
+            <p class="text-slate-500 text-sm mb-6">Sınavdan çıkmak istediğine emin misin? Tüm ilerlemen kaybolacak.</p>
+            <div class="flex gap-3">
+                <button onclick="hideModal()" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold">Vazgeç</button>
+                <button onclick="processQuit()" class="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold">Çıkış Yap</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ALL_QUESTIONS = [
+            { id: 1, statement: "Glikoliz evresi, istisnasız tüm canlılarda hücrenin sitoplazmasında gerçekleşir.", answer: true, explanation: "Glikoliz tüm canlılarda ortaktır ve sitoplazmadaki enzimler aracılığıyla yürütülür." },
+            { id: 2, statement: "Oksijenli solunumda en fazla ATP üretimi Krebs döngüsü sırasında gerçekleşir.", answer: false, explanation: "En fazla ATP, Elektron Taşıma Sistemi (ETS) evresinde oksidatif fosforilasyon ile üretilir." },
+            { id: 3, statement: "Laktik asit fermantasyonu sırasında yan ürün olarak karbondioksit açığa çıkar.", answer: false, explanation: "Laktik asit fermantasyonunda CO2 çıkışı olmaz. CO2 çıkışı etil alkol fermantasyonunda görülür." },
+            { id: 4, statement: "Oksijenli solunumun ETS evresi, ökaryot hücrelerde mitokondrinin kristasında (iç zar) gerçekleşir.", answer: true, explanation: "ETS elemanları mitokondri iç zarına gömülü haldedir; bakteri gibi prokaryotlarda ise mezozom veya hücre zarında bulunur." },
+            { id: 5, statement: "Fermantasyon ve oksijensiz solunum süreçleri biyolojik olarak aynı mekanizmalardır.", answer: false, explanation: "Fermantasyonda ETS kullanılmaz, son elektron alıcısı organiktir. Oksijensiz solunumda ise ETS kullanılır ve son alıcı inorganiktir." },
+            { id: 6, statement: "Glikoliz reaksiyonlarının başlayabilmesi için hücrenin başlangıçta 2 ATP harcaması gerekir.", answer: true, explanation: "Glikozun aktifleşmesi için 2 ATP tüketilir (aktivasyon enerjisi); buna defosforilasyon denir." },
+            { id: 7, statement: "Krebs döngüsünde sadece NADH üretilir, FADH2 üretimi gerçekleşmez.", answer: false, explanation: "FADH2 molekülü sadece Krebs döngüsü sırasında üretilen ve oksijenli solunuma özgü olan bir taşıyıcıdır." },
+            { id: 8, statement: "Oksijenli solunumun son elektron alıcısı oksijen molekülüdür.", answer: true, explanation: "ETS'nin sonunda elektronlar oksijen tarafından tutulur ve hidrojenlerle birleşerek su (H2O) oluşturur." },
+            { id: 9, statement: "Etil alkol fermantasyonu yapan mayalar, hamurun kabarmasını sağlayan karbondioksit üretirler.", answer: true, explanation: "Hamurun kabarması, etil alkol fermantasyonu sonucu çıkan CO2 gazının yaptığı basınç sayesindedir." },
+            { id: 10, statement: "Çizgili kas hücreleri, yeterli oksijen gelmediği durumlarda laktik asit fermantasyonu yapabilir.", answer: true, explanation: "Yoğun egzersiz sırasında kaslar geçici olarak laktik asit üreterek enerji ihtiyacını destekler." },
+            { id: 11, statement: "Oksijenli solunumun genel denklemine göre atmosfere verilen CO2'nin kaynağı glikozdur.", answer: true, explanation: "Glikozun karbonları Krebs hazırlık ve Krebs evrelerinde CO2 olarak dışarı atılır." },
+            { id: 12, statement: "Substrat düzeyinde fosforilasyon sadece glikoliz evresine özgü bir olaydır.", answer: false, explanation: "Substrat düzeyinde fosforilasyon hem glikolizde hem de Krebs döngüsünde gerçekleşir." },
+            { id: 13, statement: "Hücresel solunumun temel amacı hücrenin büyümesi için gerekli proteinleri üretmektir.", answer: false, explanation: "Solunumun temel ve tek amacı metabolik faaliyetler için gerekli olan ATP enerjisini üretmektir." },
+            { id: 14, statement: "NAD+ ve FAD+ molekülleri, solunum reaksiyonları sırasında hidrojen taşıyan koenzimlerdir.", answer: true, explanation: "Bu moleküller hidrojen alarak indirgenir ve ETS'ye taşıyarak yükseltgenirler." },
+            { id: 15, statement: "Pirüvattan asetil-CoA oluşumu (Link reaksiyonu) sırasında ATP üretimi gerçekleşir.", answer: false, explanation: "Bu geçiş evresinde sadece CO2 çıkışı ve NADH üretimi olur, ATP üretilmez." },
+            { id: 16, statement: "Hücrede solunum hızı, ortamdaki karbondioksit miktarından bağımsız olarak her zaman sabittir.", answer: false, explanation: "Sıcaklık, pH, substrat miktarı ve su oranı gibi faktörler solunum hızını etkiler." },
+            { id: 17, statement: "Olgun alyuvar hücreleri çekirdek ve organellerini kaybettikleri için sadece laktik asit fermantasyonu yaparlar.", answer: true, explanation: "Mitokondrileri olmadığı için oksijen taşıdıkları halde oksijenli solunum yapamazlar." },
+            { id: 18, statement: "Oksijensiz solunumda (anaerobik) son elektron alıcısı sülfat, nitrat veya kükürt gibi inorganik maddelerdir.", answer: true, explanation: "Bu canlılar ETS kullanır ancak oksijen yerine başka inorganik maddeleri tercih ederler." },
+            { id: 19, statement: "Glikozun tamamen inorganik maddelere (CO2 ve H2O) kadar parçalandığı süreç oksijenli solunumdur.", answer: true, explanation: "Fermantasyonda parçalanma tam değildir, enerji yüklü organik son ürünler (alkol/asit) kalır." },
+            { id: 20, statement: "Solunum reaksiyonları sonucunda hücrenin pH değeri ortamdaki karbondioksit artışına bağlı olarak yükselir.", answer: false, explanation: "CO2 asidik bir gazdır; miktarının artması ortamın pH değerini düşürür (asitliği artırır)." }
+        ];
+
+        let state = {
+            step: 'intro',
+            questions: [],
+            currentIndex: 0,
+            score: 0,
+            wrongAnswers: 0,
+            timer: 0,
+            timerInterval: null,
+            feedback: null
+        };
+
+        function init() {
+            renderIntro();
+        }
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startQuiz(count) {
+            state.questions = shuffle([...ALL_QUESTIONS]).slice(0, count);
+            state.step = 'quiz';
+            state.currentIndex = 0;
+            state.score = 0;
+            state.wrongAnswers = 0;
+            state.timer = 0;
+            state.feedback = null;
+            
+            startTimer();
+            renderQuiz();
+            updateHeader();
+        }
+
+        function startTimer() {
+            if (state.timerInterval) clearInterval(state.timerInterval);
+            state.timerInterval = setInterval(() => {
+                state.timer++;
+                const timerEl = document.getElementById('timer-display');
+                if (timerEl) timerEl.innerText = formatTime(state.timer);
+            }, 1000);
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function handleAnswer(choice) {
+            if (state.feedback) return;
+            const q = state.questions[state.currentIndex];
+            const isCorrect = choice === q.answer;
+
+            if (isCorrect) {
+                state.score++;
+                state.feedback = { isCorrect: true, message: "🔔 TEBRİKLER!", explanation: "Mükemmel! Enerji metabolizmasını çok iyi kavramışsın." };
+            } else {
+                state.wrongAnswers++;
+                state.feedback = { isCorrect: false, message: "❌ DİKKAT!", explanation: q.explanation };
+            }
+            renderQuiz();
+        }
+
+        function nextQuestion() {
+            state.feedback = null;
+            if (state.currentIndex + 1 < state.questions.length) {
+                state.currentIndex++;
+                renderQuiz();
+            } else {
+                finishQuiz();
+            }
+        }
+
+        function finishQuiz() {
+            clearInterval(state.timerInterval);
+            state.step = 'result';
+            renderResult();
+            updateHeader();
+        }
+
+        function updateHeader() {
+            const controls = document.getElementById('header-controls');
+            if (state.step === 'intro') {
+                controls.innerHTML = '';
+            } else {
+                controls.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        ${state.step === 'quiz' ? `
+                        <div class="flex items-center gap-2 font-mono bg-slate-100 px-3 py-1.5 rounded-full text-slate-600 text-sm font-bold">
+                            <span id="timer-display">${formatTime(state.timer)}</span>
+                        </div>` : ''}
+                        <button onclick="showQuitConfirm()" class="p-2 hover:bg-red-50 text-red-500 rounded-xl transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderIntro() {
+            document.getElementById('app-container').innerHTML = `
+                <div class="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 animate-in fade-in duration-300 text-center">
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93"/></svg>
+                        </div>
+                    </div>
+                    <h2 class="text-2xl font-black mb-4">Besinlerden Enerjiye</h2>
+                    <p class="text-slate-600 mb-8 leading-relaxed">Hücresel solunum ve fermantasyon süreçlerini test etmeye hazır mısın? 2024 MEB müfredatına tam uyumlu 20 önerme seni bekliyor. Başarılar dilerim!</p>
+                    <div class="space-y-4 mb-8">
+                        <h3 class="font-bold text-slate-400 uppercase tracking-widest text-xs text-center">Soru Sayısı Seç</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button onclick="startQuiz(5)" class="py-4 bg-sky-50 border-2 border-sky-100 text-sky-700 hover:bg-sky-100 hover:border-sky-200 rounded-2xl font-black transition-all shadow-sm">5</button>
+                            <button onclick="startQuiz(10)" class="py-4 bg-purple-50 border-2 border-purple-100 text-purple-700 hover:bg-purple-100 hover:border-purple-200 rounded-2xl font-black transition-all shadow-sm">10</button>
+                            <button onclick="startQuiz(20)" class="py-4 bg-emerald-50 border-2 border-emerald-100 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-200 rounded-2xl font-black transition-all shadow-sm">20</button>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-2xl text-xs text-slate-500 flex items-center gap-3">
+                        <svg class="flex-shrink-0 text-indigo-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        <span>Oksijenli solunumun mitokondrideki evrelerine dikkat etmeyi unutma!</span>
+                    </div>
+                </div>
+            `;
+            updateHeader();
+        }
+
+        function renderQuiz() {
+            const q = state.questions[state.currentIndex];
+            const progress = ((state.currentIndex + 1) / state.questions.length) * 100;
+            
+            document.getElementById('app-container').innerHTML = `
+                <div class="space-y-4 animate-fade-in">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                        <div class="flex justify-between text-[11px] font-bold uppercase tracking-tighter text-slate-400 mb-2">
+                            <span>Önerme ${state.currentIndex + 1} / ${state.questions.length}</span>
+                            <span class="text-indigo-500">Doğru: ${state.score}</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div class="bg-indigo-500 h-full transition-all duration-500" style="width: ${progress}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-8 rounded-[2rem] shadow-xl border border-slate-100 min-h-[350px] flex flex-col justify-center text-center relative">
+                        <div class="mb-6 inline-flex items-center gap-2 text-indigo-500 font-bold text-xs uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full mx-auto">
+                            Metabolik Önerme
+                        </div>
+                        <h3 class="text-xl sm:text-2xl font-bold mb-10 leading-snug px-2">"${q.statement}"</h3>
+
+                        <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto w-full">
+                            <button onclick="handleAnswer(true)" ${state.feedback ? 'disabled' : ''} 
+                                class="py-6 rounded-2xl font-black text-lg transition-all border-b-4 
+                                ${state.feedback ? (q.answer === true ? 'bg-emerald-400 text-white border-emerald-500' : 'bg-slate-100 text-slate-300 border-slate-200') : 'bg-emerald-400 text-white border-emerald-500 shadow-lg active:translate-y-1'}">DOĞRU</button>
+                            <button onclick="handleAnswer(false)" ${state.feedback ? 'disabled' : ''}
+                                class="py-6 rounded-2xl font-black text-lg transition-all border-b-4
+                                ${state.feedback ? (q.answer === false ? 'bg-rose-400 text-white border-rose-500' : 'bg-slate-100 text-slate-300 border-slate-200') : 'bg-rose-400 text-white border-rose-500 shadow-lg active:translate-y-1'}">YANLIŞ</button>
+                        </div>
+
+                        ${state.feedback ? `
+                        <div class="mt-8 p-6 rounded-2xl animate-in fade-in duration-300 ${state.feedback.isCorrect ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}">
+                            <div class="font-black text-sm mb-2 text-center">${state.feedback.message}</div>
+                            <p class="text-xs mb-4 text-center">${state.feedback.explanation}</p>
+                            <button onclick="nextQuestion()" class="w-full py-3 bg-white text-slate-800 rounded-xl font-bold shadow-sm border border-slate-100">İlerle</button>
+                        </div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderResult() {
+            const percent = Math.round((state.score / state.questions.length) * 100);
+            let badge = { label: "Bilim Yolcusu", emoji: "📚", color: "text-gray-500", bg: "bg-gray-50" };
+            if (percent === 100) badge = { label: "ATP Uzmanı", emoji: "🏆", color: "text-yellow-600", bg: "bg-yellow-50" };
+            else if (percent >= 80) badge = { label: "Mitokondri Ustası", emoji: "🥇", color: "text-blue-600", bg: "bg-blue-50" };
+            else if (percent >= 60) badge = { label: "Glikoliz Kaşifi", emoji: "🥈", color: "text-green-600", bg: "bg-green-50" };
+
+            document.getElementById('app-container').innerHTML = `
+                <div class="bg-white p-8 rounded-3xl shadow-xl text-center animate-fade-in">
+                    <h2 class="text-2xl font-black mb-8 italic">TEST KARNESİ</h2>
+                    
+                    <div class="mb-10 p-8 rounded-[2.5rem] border-4 border-double badge-pulse ${badge.bg} ${badge.color}">
+                        <div class="text-7xl mb-4">${badge.emoji}</div>
+                        <div class="text-2xl font-black uppercase tracking-tighter mb-1">${badge.label}</div>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Naci Karhan Başarı Sertifikası</div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-8">
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div class="text-xs font-bold text-slate-400 uppercase mb-1">Başarı</div>
+                            <div class="text-2xl font-black text-indigo-600">%${percent}</div>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div class="text-xs font-bold text-slate-400 uppercase mb-1">Süre</div>
+                            <div class="text-2xl font-black text-slate-700">${formatTime(state.timer)}</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-2xl border border-green-100">
+                            <div class="text-xs font-bold text-green-400 uppercase mb-1">Doğru</div>
+                            <div class="text-2xl font-black text-green-600">${state.score}</div>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-2xl border border-red-100">
+                            <div class="text-xs font-bold text-red-400 uppercase mb-1">Yanlış</div>
+                            <div class="text-2xl font-black text-red-600">${state.wrongAnswers}</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <button onclick="renderIntro()" class="w-full py-4 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 rounded-2xl font-bold transition-all">Ana Menüye Dön</button>
+                        <button onclick="copyResult('${badge.label}', ${percent})" class="w-full py-4 bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-100 rounded-2xl font-bold transition-all">Rozetini Kopyala</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showQuitConfirm() {
+            document.getElementById('confirm-modal').style.display = 'flex';
+        }
+
+        function hideModal() {
+            document.getElementById('confirm-modal').style.display = 'none';
+        }
+
+        function processQuit() {
+            clearInterval(state.timerInterval);
+            hideModal();
+            renderIntro();
+        }
+
+        function copyResult(label, percent) {
+            const text = `Besinlerden Enerjiye testini %${percent} başarı ile tamamlayıp "${label}" rozetini kazandım! 🏆 @NaciKarhan`;
+            const dummy = document.createElement("textarea");
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+            alert("Sonucunuz kopyalandı! Sosyal medyada paylaşabilirsiniz.");
+        }
+
+        init();
+    </script>
+</body>
+</html>
